@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <link rel='stylesheet' href='styles/styles.css'/>
+</head>
+<body>
+    <div class="description">
+        <h3>Vanilla JavaScript Exercise</h3>
+        <p><em>Goal:</em> Create a visual and interactive list, that can be sorted and filtered, of all the trips my wife and I have taken.</p>
+        <p><em>Summary:</em> My wife and I publish all the photos from our trips on SmugMug. Due to the nature of SmugMug, it's not easy to get a 
+            chronological view of those trips. We also publish other material on the site that isn't always trip related. We wanted a way 
+            to see them all in one place, and JavaScript was the answer. While SmugMug does allow for custom HTML and CSS creation, they 
+            explicitly do not allow JavaScript, so this app had to be written and hosted somewhere else. Having previously written JS in 
+            React.js and React Native, I was missing a lot of Vanilla JS (and HTML\CSS for that matter) fundamentals. It was time to really 
+            invest in Vanilla JS because there are so many JS frameworks\abstractions and because JS is one of the most powerful languages 
+            in the world.. 
+        </p>
+        <h4>What I learned, practiced, and reinforced</h4>
+        <ul>
+            <li>Linking external JavaScipt and CSS to the HTML page</li>
+            <li>Calling and using the <a href="https://api.smugmug.com/api/v2/doc" target="_blank">SmugMug API</a> (for albums)</li>
+            <li>Immediately being stopped by CORS
+                <ul>
+                    <li><a href="https://developer.mozilla.org/en-us/docs/Web/HTTP/CORS" target="_blank">Understanding CORS</a></li>
+                    <li>Getting around CORS</li>
+                    <li>Testing different CORS proxies (thanks <a href="https://allorigins.win/" target="_blank">allOrigins</a>)</li>
+                </ul>
+            </li>
+            <li>JSON text formatter for practice (this seems like a good interview question that hits various built-in JavaScript features)
+                <ul>
+                    <li>Using Object.keys()</li>
+                    <li>Traversing the JSON object recursively</li>
+                    <li>Using closures for controlling the current indent level</li>
+                    <li>Using 'typeof' to inspect the data types</li>
+                </ul>
+            </li>
+            <li>Event listener to continue fetching albums
+                <ul>
+                    <li>SmugMug limits 50 albums per request</li>
+                    <li>SmugMug specifies the Next query request URL</li>
+                </ul>
+            </li>
+            <li>Regular Expressions to extract trip date, name, and category from the Album's URL</li>
+            <li>Date.prototype methods practice</li>
+            <li>Array.prototype methods for filtering, sorting, and iterating</li>
+            <li>Dynamically creating and populating a 'div' table using the DOM</li>
+            <li>Once all the albums are fetched, created more event listeners for:
+                <ul>
+                    <li>Sorting the trips chronologically</li>
+                    <li>Filtering the trips by name or category</li>
+                </ul>
+            </li>
+            <li>CSS Flexbox, selectors, 'box model' (ie. padding, border, margin), positioning, etc</li>
+            <li>Custom progress indicator while albums are fetched</li>
+            <li>Hide the SmugMug API key from frontend view source and open source repository
+                <ul>
+                    <li><a href="https://github.com/chris-chapin/allOrigins" target="_blank">Forked the allOrigins repository</a></li>
+                    <li><a href="https://glitch.com/edit/#!/orchid-evanescent-surfboard" target="_blank">Deployed a slightly modified version of allOrigins to glitch.com (free node.js hosting)</a></li>
+                </ul>
+            </li>
+            <li>Navigating the content on <a href="https://developer.mozilla.org/en-US/" target="_blank">MDN</a></li>
+        </ul>
+        <h4>Possible additions (requiring more structured album data in SmugMug)</h4>
+        <ul>
+            <li>Tags (ie. State, Wildnerness\Forest\Park name, prominent list)</li>
+            <li>Rating scale</li>
+        </ul>
+    </div>
+    <div class='tripTable'>
+        <h3 id='loadingIndicator' class='loadingIndicator'>Connecting to custom allOrigins CORS proxy hosted on glitch.com
+            (this will take 1-2 minutes if the service has gone to sleep)
+        </h3>
+        <div class='tripRow tripHeader'>
+            <div class="startDate cel">
+                <em>Sort by</em>
+            </div>
+            <div class='endDate cel'>
+                -
+            </div>
+            <div class="tripName cel">
+                <input id="tripsFilter" type="text" placeholder="Filter by trips (enter)"/>
+            </div>
+            <div class="tripActivity cel">
+                <input id="activityFilter" type="text" placeholder="Filter by activity (enter)"/>
+            </div>
+        </div>
+        <div class='tripRow tripHeader'>
+            <div id='sortStart' class="startDate cel">
+                <em>Start Date &#8593;</em>
+            </div>
+            <div class='endDate cel'>
+                <em>End Date</em>
+            </div>
+            <div class="tripName cel">
+                <em>Trip</em>
+            </div>
+            <div class="tripActivity cel">
+                <em>Activity</em>
+            </div>
+        </div>
+        <div id='tripsBody'>
+            <!-- this gets populated dynamically from fetch'd SmugMug data -->
+        </div>
+    </div>
+    <!-- footer -->
+</body>
+<script src="scripts/helper.js"></script>
+<script>
+    let trips = [];
+    let tripsBody = document.getElementById(`tripsBody`);
+    let loadingIndicator = document.getElementById(`loadingIndicator`);
+    let loadingInterval;
+    let tripsTableState = {
+        sortDescending: false,
+        tripsFilterValue: ``,
+        activityFilterValue: ``,
+        fetchedAlbums: 0
+    };
+
+    // public allOrigins proxy - api.allorigins.win
+    // custom allOrigins proxy - orchid-evanescent-surfboard.glitch.me
+    tripsBody.addEventListener(`fetchAlbums`, event => {
+        fetch(`https://orchid-evanescent-surfboard.glitch.me/raw?url=${encodeURIComponent(`https://api.smugmug.com/${event.detail}`)}`, {
+            method: 'GET',
+            cache: 'no-cache',        
+            headers: {
+                'Accept': 'application/json'
+            }
+        })
+        .then(response => {
+            if (response.ok) {
+                response.json().then(albums => {                    
+                    if (albums.Response.Pages.Count > 0) {
+                        parseAlbums(albums, trips);
+                    }
+
+                    // check for more albums
+                    if (albums.Response.Pages.hasOwnProperty(`NextPage`)) {
+                        tripsBody.dispatchEvent(new CustomEvent(`fetchAlbums`, {detail: albums.Response.Pages.NextPage}));
+                        tripsTableState.fetchedAlbums += albums.Response.Pages.Count;
+
+                        let dots = ``;
+
+                        for (let i = loadingIndicator.innerHTML.length; i > 0; i--) {
+                            if (loadingIndicator.innerHTML[i] === `.`) {
+                                dots = `${dots}.`;
+                            }
+                        }
+                        
+                        loadingIndicator.innerHTML = `Fetching albums ${tripsTableState.fetchedAlbums}/${albums.Response.Pages.Total}${dots}`;
+                        resetTrips(trips);
+                    }
+                    else {
+                        // finished fetching albums
+                        // clean up loading indicator
+                        clearInterval(loadingInterval);
+                        loadingIndicator.style.display = `none`;
+
+                        // add trips to page
+                        sortTrips(trips, tripsTableState.sortDescending);
+                        resetTrips(trips);
+
+                        // create events for 'data analysis'
+                        // event to change sort order of trip start date
+                        document.getElementById(`sortStart`).addEventListener(`click`, event => {
+                            tripsTableState.sortDescending = !tripsTableState.sortDescending;
+                            tripsBody.dispatchEvent(new CustomEvent(`renderTripsTable`));
+                        });
+
+                        // event to filter trips list based on the trip name
+                        document.getElementById(`tripsFilter`).addEventListener(`change`, event => {
+                            tripsTableState.tripsFilterValue = event.target.value;
+                            tripsBody.dispatchEvent(new CustomEvent(`renderTripsTable`));
+                        });
+
+                        // event to filter trips list based on the trip tag
+                        document.getElementById(`activityFilter`).addEventListener(`change`, event => {
+                            tripsTableState.activityFilterValue = event.target.value;
+                            tripsBody.dispatchEvent(new CustomEvent(`renderTripsTable`));
+                        });
+                    }
+                });
+            }
+            else {
+                console.log(`fetch() failed with ${response.status}: ${response.statusText}`);
+            }
+        })
+        .catch(error => console.log(`fetch() threw with ${error}`))
+    });
+
+    tripsBody.addEventListener(`renderTripsTable`, event => {
+        // check if table needs to be re-sorted
+        let sortStartElem = document.getElementById(`sortStart`);
+        const upArrow = `\u2191`;
+        const downArrow = `\u2193`;
+
+        if (sortStartElem.innerHTML.includes(upArrow) && tripsTableState.sortDescending === true) {
+            // sort table oldest to newest
+            sortTrips(trips, tripsTableState.sortDescending);
+            sortStartElem.innerHTML = `<em>Start Date ${downArrow}</em>`;
+        }
+        else if (sortStartElem.innerHTML.includes(downArrow) && tripsTableState.sortDescending === false) {
+            // sort table newest to oldest
+            sortTrips(trips, tripsTableState.sortDescending);
+            sortStartElem.innerHTML = `<em>Start Date ${upArrow}</em>`;
+        }
+
+        let filteredTrips = [];        
+
+        // check for filtering on trip name
+        if (tripsTableState.tripsFilterValue !== ``) {
+            filteredTrips = trips.filter(trip => trip.title.toLowerCase().includes(tripsTableState.tripsFilterValue.toLowerCase()));
+        }
+        
+        // check for filtering on trip activity
+        if (tripsTableState.activityFilterValue !== ``) {
+            // additional filtering
+            if (filteredTrips.length > 0) {
+                let additionalFilteredTrips = filteredTrips.filter(trip => trip.activity.toLowerCase().includes(tripsTableState.activityFilterValue.toLowerCase()));
+
+                if (additionalFilteredTrips.length > 0) {
+                    filteredTrips = additionalFilteredTrips;
+                }
+            }
+            else {
+                filteredTrips = trips.filter(trip => trip.activity.toLowerCase().includes(tripsTableState.activityFilterValue.toLowerCase()));
+            }
+        }
+
+        resetTrips(filteredTrips.length > 0 ? filteredTrips : trips);
+    });
+
+    tripsBody.dispatchEvent(new CustomEvent(`fetchAlbums`, {detail: `/api/v2/user/RadkaandChris!albums?start=1&count=50`}));
+    loadingInterval = setInterval(() => {
+        if (loadingIndicator.innerText.includes(`...`)) {
+            loadingIndicator.innerText = loadingIndicator.innerText.slice(0, loadingIndicator.innerText.length - 3);
+        }
+        else {
+            loadingIndicator.innerText = `${loadingIndicator.innerText}.`;
+        }
+    }, 500);
+</script>
+</html>

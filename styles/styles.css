@@ -1,0 +1,75 @@
+body {
+    background-color: black;
+}
+
+.description {
+    width: 80%;
+    margin: 0 10%;
+}
+
+.tripTable {
+    width: 80%;
+    margin: 0 10%;
+    position: relative;
+    text-align: center;
+}
+
+.loadingIndicator {
+    top: 0px;
+    left: 0px;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0.9;
+    position: absolute;
+    text-align: center;
+    background-color: grey;
+}
+
+.tripRow {
+    display: flex;
+    flex-direction: row;
+}
+
+.yearRow {
+    text-align: center;
+    font-weight: bold;
+    background-color: lightblue;
+}
+
+.tripHeader {
+    background-color: lightskyblue;
+}
+
+.even {
+    background-color: whitesmoke;
+}
+
+.odd {
+    background-color: lightgray;
+}
+
+.cel {
+    border: thin solid black;
+}
+
+.startDate,
+.endDate {
+    flex: 10%;
+}
+
+.tripName {
+    flex: 60%;
+}
+
+.tripActivity {
+    flex: 20%
+}
+
+h3, h4, ul, li, p {
+    color: #eee;
+}
+
+.description a {
+    color: #809fff;
+}
