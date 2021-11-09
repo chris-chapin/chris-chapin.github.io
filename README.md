@@ -1,5 +1,7 @@
 ### Hi there 👋
 
+To view the website, visit https://chris-chapin.github.io/
+
 <!--
 **chris-chapin/chris-chapin** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
 
